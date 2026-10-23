@@ -3,74 +3,33 @@ import streamlit as st
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 
-st.title("⚽ AI Football Fixture Generator")
-
-data = pd.read_csv("results.csv")
-X = data[["home_points", "away_points"]]
-y = data["result"]
-
-model = DecisionTreeClassifier(max_depth=3)
-model.fit(X, y)
+st.title("AI Football Fixture Generator")
 
 teams = st.text_area(
-    "Enter Team,Points (one per line)",
-    "Brazil,10\nFrance,8\nGermany,5\nArgentina,3"
-)
+    "Enter team names, one per line",
+    "Arsenal\nChelsea\nLiverpool\nManchester City"
+).splitlines()
 
-if st.button("Generate Fixtures"):
-    try:
-        team_list = []
-        for line in teams.splitlines():
-            name, points = line.rsplit(",", 1)
-            team_list.append((name.strip(), int(points)))
+st.header("Tournament Fixtures")
 
-        if len(team_list) < 2:
-            st.error("Enter at least 2 teams.")
-        elif len({t[0].lower() for t in team_list}) != len(team_list):
-            st.error("Team names must be unique.")
-        elif any(p < 0 for _, p in team_list):
-            st.error("Points cannot be negative.")
-        else:
-            team_list.sort(key=lambda t: t[1], reverse=True)
+for i in range(len(teams)):
+    for j in range(i + 1, len(teams)):
+        st.write(teams[i], "vs", teams[j])
 
-            st.subheader("Team Ranking")
-            for i, (name, points) in enumerate(team_list, 1):
-                st.write(f"{i}. {name} - {points} points")
+st.header("AI Match Prediction")
 
-            names = [t[0] for t in team_list]
-            points = dict(team_list)
+data = pd.DataFrame({
+    "Home": [2, 1, 3, 0, 2, 1],
+    "Away": [0, 1, 1, 2, 1, 3],
+    "Result": ["Win", "Draw", "Win", "Lose", "Win", "Lose"]
+})
 
-            if len(names) % 2:
-                names.append("BYE")
+model = DecisionTreeClassifier()
+model.fit(data[["Home", "Away"]], data["Result"])
 
-            st.subheader("AI Match Predictions")
+home = st.number_input("Home team recent average goals", 0.0, 10.0, 2.0)
+away = st.number_input("Away team recent average goals", 0.0, 10.0, 1.0)
 
-            for r in range(len(names) - 1):
-                st.write(f"### Round {r + 1}")
-
-                for i in range(len(names) // 2):
-                    a, b = names[i], names[-1 - i]
-
-                    if a != "BYE" and b != "BYE":
-                        result = model.predict(
-                            pd.DataFrame(
-                                [[points[a], points[b]]],
-                                columns=["home_points", "away_points"]
-                            )
-                        )[0]
-
-                        prediction = {
-                            "H": a + " may win",
-                            "D": "Possible draw",
-                            "A": b + " may win"
-                        }
-
-                        st.write(f"⚽ {a} vs {b}")
-                        st.write("AI:", prediction[result])
-
-                names = (
-                    [names[0]] + [names[-1]] + names[1:-1]
-                )
-
-    except (ValueError, KeyError):
-        st.error("Enter valid data: Team Name,Points")
+if st.button("Predict Match"):
+    prediction = model.predict([[home, away]])
+    st.success("AI Prediction: " + prediction[0])
